@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  # Your fraud detection API service
+  fraud-detector:
+    build: .
+    container_name: fraud-detector-api
+    environment:
+      - PYTHONUNBUFFERED=${PYTHONUNBUFFERED}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - fraud-detection-network
+
+  # Cloudflare Tunnel service
+  cloudflare-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    command: tunnel --no-autoupdate run --url http://fraud-detector:5000 --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      fraud-detector:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fraud-detection-network
+
+networks:
+  fraud-detection-network:
+    driver: bridge
